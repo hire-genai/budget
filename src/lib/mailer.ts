@@ -50,7 +50,7 @@ export async function sendOtpEmail({ to, code, purpose }: SendOtpArgs): Promise<
     return
   }
   await t.sendMail({
-    from: process.env.SMTP_FROM || `${APP_NAME} <no-reply@ledger.app>`,
+    from: process.env.EMAIL_FROM || process.env.SMTP_FROM || `${APP_NAME} <no-reply@ledger.app>`,
     to,
     subject,
     text: `Your ${APP_NAME} code is ${code}. It expires in 10 minutes.`,

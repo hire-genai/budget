@@ -11,8 +11,11 @@ npm install
 # 2) Paste your Neon Postgres URL into .env
 #    DATABASE_URL="postgresql://user:pass@ep-xxx.neon.tech/dbname?sslmode=require"
 
-# 3) Create the schema on your database
+# 3) Create the schema on your Neon database. Pick ONE of:
+#    a) Let Prisma manage migrations:
 npx prisma migrate dev --name init
+#    b) Or copy the raw SQL and run it once in Neon's SQL editor:
+#       → see prisma/neon-setup.sql
 
 # 4) Seed a demo user (optional but recommended)
 npm run seed
