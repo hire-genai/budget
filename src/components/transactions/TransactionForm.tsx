@@ -6,7 +6,7 @@ import { PAYMENT_METHODS, PAYMENT_METHOD_LABELS, TRANSACTION_TYPES } from '@/lib
 import { useToast } from '@/components/ui/Toast'
 import { CalendarDays, ArrowDownLeft, ArrowUpRight, ArrowLeftRight } from 'lucide-react'
 
-type Account = { id: string; name: string; type: string; color: string; currency: string }
+type Account = { id?: string; accountId?: string; name: string; type: string; color: string; currency: string }
 type Category = { id: string; name: string; parentId: string | null; kind: 'EXPENSE' | 'INCOME' | string; color: string }
 
 export type TransactionFormInitial = {
@@ -36,13 +36,14 @@ export function TransactionForm({
   onCancel?: () => void
 }) {
   const toast = useToast()
+  const acctId = (a: Account) => a.accountId ?? a.id ?? ''
 
   const [type, setType] = useState<'EXPENSE' | 'INCOME' | 'TRANSFER'>(initial?.type ?? 'EXPENSE')
   const [amount, setAmount] = useState(initial?.amount ?? '')
   const [date, setDate] = useState<string>(() =>
     initial?.date ? new Date(initial.date).toISOString().slice(0, 16) : new Date().toISOString().slice(0, 16)
   )
-  const [accountId, setAccountId] = useState<string>(initial?.accountId ?? accounts[0]?.id ?? '')
+  const [accountId, setAccountId] = useState<string>(initial?.accountId ?? acctId(accounts[0] ?? {}) ?? '')
   const [transferAccountId, setTransferAccountId] = useState<string>(initial?.transferAccountId ?? '')
   const [categoryId, setCategoryId] = useState<string>(initial?.categoryId ?? '')
   const [merchantName, setMerchantName] = useState<string>(initial?.merchantName ?? '')
@@ -54,6 +55,15 @@ export function TransactionForm({
   const [notes, setNotes] = useState<string>(initial?.notes ?? '')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+
+  // When accounts load after mount, auto-select first account if nothing is selected
+  useEffect(() => {
+    if (accounts.length > 0 && !accountId) {
+      setAccountId(acctId(accounts[0]))
+    }
+    // intentionally exclude accountId — only react to accounts changing
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accounts])
 
   const kindFilter = type === 'INCOME' ? 'INCOME' : 'EXPENSE'
   const relevantCategories = useMemo(
@@ -140,12 +150,12 @@ export function TransactionForm({
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="label">Amount</label>
+          <label className="label">Amount <span className="text-accent-red">*</span></label>
           <input className="input tabular-nums text-lg" inputMode="decimal" placeholder="0.00"
             value={amount} onChange={(e) => setAmount(e.target.value)} autoFocus />
         </div>
         <div>
-          <label className="label">Date &amp; time</label>
+          <label className="label">Date &amp; time <span className="text-accent-red">*</span></label>
           <div className="relative">
             <input className="input pr-9" type="datetime-local" value={date} onChange={(e) => setDate(e.target.value)} />
             <CalendarDays size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none" />
@@ -155,17 +165,18 @@ export function TransactionForm({
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="label">{type === 'TRANSFER' ? 'From account' : 'Account'}</label>
+          <label className="label">{type === 'TRANSFER' ? 'From account' : 'Account'} <span className="text-accent-red">*</span></label>
           <select className="input" value={accountId} onChange={(e) => setAccountId(e.target.value)}>
-            {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+            {!accountId && <option value="" disabled>Select account…</option>}
+            {accounts.map((a) => <option key={acctId(a)} value={acctId(a)}>{a.name}</option>)}
           </select>
         </div>
         {type === 'TRANSFER' ? (
           <div>
-            <label className="label">To account</label>
+            <label className="label">To account <span className="text-accent-red">*</span></label>
             <select className="input" value={transferAccountId} onChange={(e) => setTransferAccountId(e.target.value)}>
               <option value="">Select destination</option>
-              {accounts.filter((a) => a.id !== accountId).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+              {accounts.filter((a) => acctId(a) !== accountId).map((a) => <option key={acctId(a)} value={acctId(a)}>{a.name}</option>)}
             </select>
           </div>
         ) : (
