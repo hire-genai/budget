@@ -1,0 +1,96 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html, body {
+  background-color: #0B0D12;
+  color: #F3F4F6;
+  min-height: 100%;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #262b36; border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: #333947; }
+
+@layer components {
+  .card {
+    @apply bg-bg-card border border-bg-border rounded-xl;
+  }
+  .card-hover {
+    @apply hover:border-brand-500/40 transition-colors;
+  }
+  .btn {
+    @apply inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-lg
+           bg-bg-hover text-text-primary border border-bg-border
+           hover:border-brand-500/40 hover:bg-bg-hover transition-colors
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-primary {
+    @apply inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-lg
+           bg-brand-600 text-white border border-brand-500
+           hover:bg-brand-500 transition-colors disabled:opacity-50;
+  }
+  .btn-danger {
+    @apply inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-lg
+           bg-red-600/90 text-white border border-red-500
+           hover:bg-red-500 transition-colors;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center gap-2 px-2.5 py-1.5 text-sm font-medium rounded-lg
+           text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors;
+  }
+  .input {
+    @apply w-full px-3 py-2 text-sm rounded-lg
+           bg-bg-soft border border-bg-border text-text-primary
+           placeholder:text-text-muted
+           focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500/40;
+  }
+  .label {
+    @apply block text-xs font-medium text-text-secondary mb-1.5;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1.5 px-2 py-0.5 text-xs rounded-full border;
+  }
+  .table {
+    @apply w-full text-sm;
+  }
+  .table th {
+    @apply text-left font-medium text-text-secondary py-2.5 px-3 border-b border-bg-border sticky top-0 bg-bg-card;
+  }
+  .table td {
+    @apply py-3 px-3 border-b border-bg-border/60 align-middle;
+  }
+  .table tr:hover td {
+    @apply bg-bg-hover/40;
+  }
+  .section-title {
+    @apply text-xs font-semibold uppercase tracking-wider text-text-muted;
+  }
+  .money-pos { @apply text-accent-green; }
+  .money-neg { @apply text-accent-red; }
+}
+
+/* Recharts overrides */
+.recharts-cartesian-axis-tick-value { fill: #9CA3AF !important; font-size: 11px; }
+.recharts-tooltip-wrapper { outline: none !important; }
+.recharts-default-tooltip {
+  background-color: #141822 !important;
+  border: 1px solid #1E232E !important;
+  border-radius: 10px !important;
+  color: #F3F4F6 !important;
+}
+.recharts-tooltip-label { color: #9CA3AF !important; }
+.recharts-legend-item-text { color: #9CA3AF !important; }

@@ -1,0 +1,295 @@
+// Personal Expense & Finance Tracker schema
+// Provider: PostgreSQL (Neon-ready). Set DATABASE_URL in .env, then run:
+//   npx prisma migrate dev --name init
+//   npm run seed
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Users (OTP-based, no password)
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  emailVerifiedAt DateTime?
+  currency     String   @default("INR")
+  timezone     String   @default("Asia/Kolkata")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  accounts              Account[]
+  categories            Category[]
+  transactions          Transaction[]
+  budgets               Budget[]
+  recurringTransactions RecurringTransaction[]
+  goals                 FinancialGoal[]
+  tags                  Tag[]
+  merchants             Merchant[]
+  settings              UserSettings?
+
+  @@index([email])
+}
+
+model UserSettings {
+  id                  String  @id @default(cuid())
+  userId              String  @unique
+  budgetAlertsEnabled Boolean @default(true)
+  recurringAlerts     Boolean @default(true)
+  largeTxAlert        Boolean @default(true)
+  largeTxThreshold    String  @default("5000")
+  weekStart           Int     @default(1)
+  user                User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------------------------
+// OTP tokens (email one-time codes)
+// ---------------------------------------------------------------------------
+
+model OtpToken {
+  id         String   @id @default(cuid())
+  email      String
+  codeHash   String
+  purpose    String   @default("LOGIN") // LOGIN | SIGNUP
+  expiresAt  DateTime
+  consumedAt DateTime?
+  attempts   Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  @@index([email, createdAt])
+  @@index([expiresAt])
+}
+
+// ---------------------------------------------------------------------------
+// Accounts
+// ---------------------------------------------------------------------------
+
+model Account {
+  id             String   @id @default(cuid())
+  userId         String
+  name           String
+  type           String   // BANK | CASH | CREDIT_CARD | WALLET | INVESTMENT | OTHER
+  openingBalance String   @default("0")
+  currency       String   @default("INR")
+  color          String   @default("#6366F1")
+  icon           String   @default("wallet")
+  archived       Boolean  @default(false)
+  note           String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user                   User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions           Transaction[] @relation("AccountTx")
+  transferInTransactions Transaction[] @relation("TransferToAccountTx")
+  recurringTransactions  RecurringTransaction[]
+
+  @@index([userId, archived])
+}
+
+// ---------------------------------------------------------------------------
+// Categories (hierarchical)
+// ---------------------------------------------------------------------------
+
+model Category {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  slug      String
+  parentId  String?
+  kind      String   @default("EXPENSE") // EXPENSE | INCOME
+  color     String   @default("#6366F1")
+  icon      String   @default("tag")
+  isSystem  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user                  User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent                Category?              @relation("CategoryTree", fields: [parentId], references: [id])
+  children              Category[]             @relation("CategoryTree")
+  transactions          Transaction[]
+  budgets               Budget[]
+  recurringTransactions RecurringTransaction[]
+
+  @@unique([userId, slug])
+  @@index([userId, parentId])
+}
+
+// ---------------------------------------------------------------------------
+// Merchants
+// ---------------------------------------------------------------------------
+
+model Merchant {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  createdAt DateTime @default(now())
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Tags
+// ---------------------------------------------------------------------------
+
+model Tag {
+  id     String @id @default(cuid())
+  userId String
+  name   String
+  color  String @default("#6366F1")
+
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactionTags TransactionTag[]
+
+  @@unique([userId, name])
+}
+
+model TransactionTag {
+  transactionId String
+  tagId         String
+
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  tag         Tag         @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([transactionId, tagId])
+}
+
+// ---------------------------------------------------------------------------
+// Transactions
+// ---------------------------------------------------------------------------
+
+model Transaction {
+  id                String   @id @default(cuid())
+  userId            String
+  amount            String
+  type              String   // EXPENSE | INCOME | TRANSFER
+  currency          String   @default("INR")
+  date              DateTime
+  accountId         String
+  transferAccountId String?
+  categoryId        String?
+  merchantId        String?
+  paymentMethod     String   @default("UPI")
+  needType          String   @default("NEED")
+  isFixed           Boolean  @default(false)
+  isRefund          Boolean  @default(false)
+  recurringId       String?
+  description       String?
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user            User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account         Account               @relation("AccountTx", fields: [accountId], references: [id], onDelete: Restrict)
+  transferAccount Account?              @relation("TransferToAccountTx", fields: [transferAccountId], references: [id], onDelete: Restrict)
+  category        Category?             @relation(fields: [categoryId], references: [id])
+  merchant        Merchant?             @relation(fields: [merchantId], references: [id])
+  recurring       RecurringTransaction? @relation(fields: [recurringId], references: [id])
+  transactionTags TransactionTag[]
+
+  @@index([userId, date])
+  @@index([userId, type, date])
+  @@index([userId, categoryId, date])
+  @@index([userId, accountId, date])
+}
+
+// ---------------------------------------------------------------------------
+// Budgets
+// ---------------------------------------------------------------------------
+
+model Budget {
+  id         String   @id @default(cuid())
+  userId     String
+  categoryId String
+  amount     String
+  period     String   @default("MONTHLY") // MONTHLY | WEEKLY | YEARLY
+  startsOn   DateTime
+  rollover   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, categoryId, period, startsOn])
+  @@index([userId, startsOn])
+}
+
+// ---------------------------------------------------------------------------
+// Recurring
+// ---------------------------------------------------------------------------
+
+model RecurringTransaction {
+  id             String    @id @default(cuid())
+  userId         String
+  name           String
+  amount         String
+  type           String
+  accountId      String
+  categoryId     String?
+  paymentMethod  String    @default("UPI")
+  frequency      String
+  intervalCount  Int       @default(1)
+  startDate      DateTime
+  endDate        DateTime?
+  nextOccurrence DateTime
+  lastRunAt      DateTime?
+  autoPost       Boolean   @default(false)
+  isActive       Boolean   @default(true)
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account   Account       @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  category  Category?     @relation(fields: [categoryId], references: [id])
+  generated Transaction[]
+
+  @@index([userId, isActive, nextOccurrence])
+}
+
+// ---------------------------------------------------------------------------
+// Financial goals
+// ---------------------------------------------------------------------------
+
+model FinancialGoal {
+  id            String    @id @default(cuid())
+  userId        String
+  name          String
+  targetAmount  String
+  currentAmount String    @default("0")
+  targetDate    DateTime?
+  color         String    @default("#10B981")
+  icon          String    @default("target")
+  note          String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user          User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contributions FinancialGoalContribution[]
+
+  @@index([userId])
+}
+
+model FinancialGoalContribution {
+  id        String   @id @default(cuid())
+  goalId    String
+  amount    String
+  note      String?
+  createdAt DateTime @default(now())
+
+  goal FinancialGoal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@index([goalId, createdAt])
+}
