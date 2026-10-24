@@ -38,6 +38,9 @@ export default function TransactionsPage() {
   const [editing, setEditing] = useState<any | null>(null)
   const [deleting, setDeleting] = useState<any | null>(null)
   const [busyDel, setBusyDel] = useState(false)
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
+  const [bulkConfirmText, setBulkConfirmText] = useState('')
+  const [busyBulkDel, setBusyBulkDel] = useState(false)
 
   const params = useMemo(() => {
     const p = new URLSearchParams()
@@ -89,6 +92,22 @@ export default function TransactionsPage() {
     load()
   }
 
+  async function bulkDel() {
+    setBusyBulkDel(true)
+    const qs = new URLSearchParams(params)
+    qs.delete('offset'); qs.delete('limit'); qs.delete('sort')
+    qs.set('confirm', 'DELETE')
+    const res = await fetch(`/api/transactions?${qs.toString()}`, { method: 'DELETE' })
+    const data = await res.json().catch(() => ({}))
+    setBusyBulkDel(false)
+    if (!res.ok) { toast.push(data?.error || 'Bulk delete failed', 'error'); return }
+    toast.push(`Deleted ${data.deleted} transaction${data.deleted === 1 ? '' : 's'}`, 'success')
+    setBulkDeleteOpen(false)
+    setBulkConfirmText('')
+    setOffset(0)
+    load()
+  }
+
   return (
     <div className="space-y-4">
       <header className="flex flex-wrap items-center justify-between gap-3">
@@ -100,7 +119,16 @@ export default function TransactionsPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href="/api/export/csv" className="btn"><Download size={14} /> Export CSV</Link>
-          <button className="btn" onClick={() => alert('Import: use /api/import/csv — the UI wraps this in a wizard.')}><Upload size={14} /> Import</button>
+          <Link href="/import" className="btn"><Upload size={14} /> Import</Link>
+          {total > 0 && (
+            <button
+              className="btn-danger"
+              onClick={() => { setBulkConfirmText(''); setBulkDeleteOpen(true) }}
+              title={activeFilterCount > 0 ? `Delete the ${total} matching transactions` : 'Delete all transactions'}
+            >
+              <Trash2 size={14} /> Delete {activeFilterCount > 0 ? 'filtered' : 'all'}
+            </button>
+          )}
           <button className="btn-primary" onClick={() => setAddOpen(true)}><Plus size={14} /> Add transaction</button>
         </div>
       </header>
@@ -278,6 +306,55 @@ export default function TransactionsPage() {
         confirmLabel="Delete"
         busy={busyDel}
       />
+
+      <Modal
+        open={bulkDeleteOpen}
+        onClose={() => { if (!busyBulkDel) { setBulkDeleteOpen(false); setBulkConfirmText('') } }}
+        title={activeFilterCount > 0 ? `Delete ${total} filtered transactions?` : `Delete all ${total} transactions?`}
+        subtitle="This permanently removes them from the database. Account balances will update accordingly."
+        size="sm"
+      >
+        <div className="space-y-3">
+          <div className="flex gap-3 p-3 rounded-lg bg-red-500/10 border border-red-500/30">
+            <Trash2 size={18} className="text-red-300 shrink-0 mt-0.5" />
+            <div className="text-sm text-red-100">
+              {activeFilterCount > 0 ? (
+                <>Only the <strong>{total}</strong> transactions matching your current filters will be deleted.</>
+              ) : (
+                <>Every one of your <strong>{total}</strong> transactions will be deleted. This cannot be undone.</>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <label className="label">Type <span className="font-mono text-red-300">DELETE</span> to confirm</label>
+            <input
+              className="input"
+              value={bulkConfirmText}
+              onChange={(e) => setBulkConfirmText(e.target.value)}
+              placeholder="DELETE"
+              autoFocus
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              className="btn"
+              onClick={() => { setBulkDeleteOpen(false); setBulkConfirmText('') }}
+              disabled={busyBulkDel}
+            >
+              Cancel
+            </button>
+            <button
+              className="btn-danger"
+              onClick={bulkDel}
+              disabled={busyBulkDel || bulkConfirmText !== 'DELETE'}
+            >
+              {busyBulkDel ? 'Deleting…' : `Delete ${total}`}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

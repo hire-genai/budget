@@ -93,6 +93,47 @@ async function ensureMerchant(userId: string, input: { merchantId?: string | nul
   return null
 }
 
+export async function DELETE(req: NextRequest) {
+  try {
+    const user = await requireUser()
+    const url = new URL(req.url)
+    const p = url.searchParams
+
+    const where: Prisma.TransactionWhereInput = { userId: user.id }
+    const q = p.get('q')?.trim()
+    if (q) {
+      where.OR = [
+        { description: { contains: q } },
+        { notes: { contains: q } },
+        { merchant: { name: { contains: q } } },
+      ]
+    }
+    const type = p.get('type')
+    if (type && ['EXPENSE', 'INCOME', 'TRANSFER'].includes(type)) where.type = type
+    const categoryId = p.get('categoryId'); if (categoryId) where.categoryId = categoryId
+    const accountId = p.get('accountId'); if (accountId) where.accountId = accountId
+    const merchantId = p.get('merchantId'); if (merchantId) where.merchantId = merchantId
+    const paymentMethod = p.get('paymentMethod'); if (paymentMethod) where.paymentMethod = paymentMethod
+    const needType = p.get('needType'); if (needType) where.needType = needType
+    const from = p.get('from'); const to = p.get('to')
+    if (from || to) {
+      where.date = {}
+      if (from) (where.date as any).gte = new Date(from)
+      if (to) (where.date as any).lte = new Date(to)
+    }
+
+    // Hard safety gate: require ?confirm=DELETE to prevent accidental hits.
+    if (p.get('confirm') !== 'DELETE') {
+      return apiError('Pass ?confirm=DELETE to perform bulk delete', 400)
+    }
+
+    const result = await prisma.transaction.deleteMany({ where })
+    return apiOk({ deleted: result.count })
+  } catch (err) {
+    return handleServerError(err)
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const user = await requireUser()
