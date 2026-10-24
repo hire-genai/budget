@@ -6,12 +6,13 @@ import { useState } from 'react'
 import clsx from 'clsx'
 import {
   LayoutDashboard, ArrowLeftRight, Wallet, Target, PieChart, Repeat,
-  Tags, FileText, Settings, LogOut, Menu, X, PiggyBank,
+  Tags, FileText, Settings, LogOut, Menu, X, PiggyBank, Sparkles,
 } from 'lucide-react'
 
 const NAV = [
   { href: '/dashboard',   label: 'Dashboard',   icon: LayoutDashboard },
   { href: '/transactions', label: 'Transactions', icon: ArrowLeftRight },
+  { href: '/import',      label: 'AI Import',   icon: Sparkles },
   { href: '/accounts',    label: 'Accounts',    icon: Wallet },
   { href: '/budgets',     label: 'Budgets',     icon: PiggyBank },
   { href: '/categories',  label: 'Categories',  icon: Tags },
